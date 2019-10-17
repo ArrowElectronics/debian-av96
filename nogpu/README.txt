@@ -7,15 +7,35 @@ Steps for creating a simple Debian 10 (buster) image for the Avenger96 board
 
 - modify the Yocto kernel, disable iwdg2 (watchdog) in stm32mp157a-av96.dtsi
 
-- modify Yocto u-boot,  disable iwdg2 in stm32mp157a-av96.dtsi
+- modify Yocto u-boot, disable iwdg2 in stm32mp157a-av96.dtsi
 
-- rebuild u-boot and kernel, update the uSD image with them
+- rebuild u-boot and kernel
+
+- create uSD image with the following commands
+    $ parted /dev/sdX mklabel gpt
+    $ parted /dev/sdX mkpart primary 34s 545s -s
+    $ parted /dev/sdX mkpart primary 546s 1057s -s
+    $ parted /dev/sdX mkpart primary 1058s 3105s -s
+    $ parted /dev/sdX mkpart primary ext4 3106s 134177s -s
+    $ parted /dev/sdX mkpart primary ext4 134178s 166945s -s
+    $ parted /dev/sdX mkpart primary ext4 166946s 7811038s -s
+    $ parted /dev/sdX name 1 fsbl1
+    $ parted /dev/sdX name 2 fsbl2
+    $ parted /dev/sdX name 3 ssbl
+    $ parted /dev/sdX name 4 bootfs
+    $ parted /dev/sdX name 5 vendorfs
+    $ parted /dev/sdX name 6 rootfs
+    $ parted /dev/sdX set 4 legacy_boot on
+    $ mkfs.ext4 /dev/sdX5 -L vendorfs
+    $ mkfs.ext4 /dev/sdX6 -L rootfs
+
+- initialize fsbl1, fsbl2, ssbl, bootfs according to
+  flashlayout_av96-weston/FlashLayout_sdcard_stm32mp157a-av96-trusted.tsv
 
 - in this folder execute:
+    $ sudo apt-get install multistrap
     $ sudo ./build.sh
   this will create a minimal Debian 10 rootfs
-
-- clean the 'rootfs' partition on uSD card
 
 - execute this in current folder (copy over all files):
     $ sudo cp rootfs/* /media/<user>/rootfs/ -a
@@ -67,7 +87,7 @@ Steps for creating a simple Debian 10 (buster) image for the Avenger96 board
 - execute the following:
     # passwd -d root
     # apt-get update
-    # apt-get install iw vim openssh-server openssh-client network-manager rng-tools
+    # apt-get install iw vim openssh-server openssh-client network-manager rng-tools rsyslog
 - this will take some time
   when openssh-server is being set up select "2. keep the local version ..."
 
@@ -87,7 +107,7 @@ Steps for creating a simple Debian 10 (buster) image for the Avenger96 board
 
 - now copy over WiFi firmware files with "scp" from the Yocto build
   on Av96:
-     # mkdir -p /lib/firmware/brcm
+    # mkdir -p /lib/firmware/brcm
   on PC:
     $ scp .../layers/meta-av96/recipes-bsp/av96-root-files/files/lib/firmware/brcm/* root@<IP address>:/lib/firmware/brcm/
 
@@ -99,7 +119,7 @@ Steps for creating a simple Debian 10 (buster) image for the Avenger96 board
     # cd /root/deb
     # dpkg -i kernel_4.19-r0_armhf.deb kernel-4.19.9_4.19-r0_armhf.deb kernel-vmlinux_4.19-r0_armhf.deb
     # dpkg -i kernel-module*
-    # mkdir /vendor
+
 - uncomment "/boot" in /etc/fstab
   then:
     # reboot
